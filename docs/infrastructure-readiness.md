@@ -65,7 +65,7 @@ object were deleted immediately afterward.
 
 ### Desktop production contract
 
-- Packaged Electron builds default to `https://api.k8s.onsell.ai`.
+- Packaged Electron builds default to `https://api.onsell.ai`.
 - Plain HTTP is accepted only for loopback development.
 - Production server selection is locked unless an explicit support override is
   enabled.
@@ -85,6 +85,10 @@ object were deleted immediately afterward.
   images, probes, disruption budgets, autoscaling, topology spread, restricted
   security contexts, default-deny networking, Gateway/HTTPRoute, Cloud Armor,
   and health-check policies.
+- The API edge has a dedicated global IP, delegated `api.onsell.ai` DNS zone,
+  DNS-authorized Certificate Manager map, modern TLS 1.2+ policy, and an
+  HTTPS-only Gateway contract. Database, cache, worker, migrator, Matrix, and
+  bridge services remain private.
 - Platform manifests include restricted Argo CD projects and a pinned External
   Secrets Operator release.
 - A separate, fail-closed messaging package defines Synapse,
@@ -171,9 +175,10 @@ unless Onsell maintains a fork.
 ## Validation evidence
 
 - Terraform formatting and provider-backed validation pass.
-- The current Matrix-off Terraform plan is `14 add, 0 change, 0 destroy`; the
-  optional Matrix-on plan is `63 add, 0 change, 0 destroy`. Cost-bearing
-  resources remain unapplied.
+- The current Matrix-off Terraform plan is `16 add, 0 change, 0 destroy`: ten
+  API-edge resources plus six separately gated durable-Valkey resources. The
+  optional Matrix-on plan remains a separate review. Cost-bearing resources
+  remain unapplied unless explicitly selected.
 - A clean PostgreSQL 16 database runs all 40 migrations and an idempotent
   second pass.
 - Backend lint and the route-permission manifest pass.

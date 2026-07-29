@@ -12,7 +12,8 @@ Billing is linked and the foundation is live in `chrome-oven-503818-h4`.
 Cloud SQL, GKE, networking, buckets, DNS, and the low-cost disposable cache
 already exist. Do not run an unreviewed full apply: the remaining plan includes
 the replicated durable Valkey and public API edge, which add material recurring
-cost. The reconciled Matrix-off plan is `14 add, 0 change, 0 destroy`; Matrix
+cost. The reconciled Matrix-off plan is `16 add, 0 change, 0 destroy`: ten API
+edge resources plus the separately gated durable-Valkey resources. Matrix
 remains conditional and disabled.
 
 ## Watch the active project
@@ -28,6 +29,12 @@ terraform init -reconfigure     # use the existing remote state
 terraform plan -out=tfplan      # read it
 terraform apply tfplan
 ```
+
+After the first apply, delegate the API child zone from Cloudflare. Add every
+value returned by `terraform output -json api_dns_delegation_ns` as an `NS`
+record named `api`. Do not add a Cloudflare A, AAAA, or certificate-validation
+record for that hostname: Cloud DNS owns the apex A and Certificate Manager
+CNAME inside the delegated zone.
 
 Do not rerun `../../../scripts/bootstrap-state.sh` for the existing production
 project. It exists only to create a state bucket for a first installation.
@@ -61,7 +68,7 @@ protected migrator Job, whose Cloud SQL Auth Proxy uses
 | Artifact Registry | With cleanup policies (untagged images accumulate) |
 | GCS buckets | `media` (CDN origin), `desktop-updates` |
 | Secret Manager | External provider containers plus distinct API, worker, migration and Matrix DB/Redis contracts; Matrix-on adds nine messaging secret containers |
-| API edge | Dedicated `onsell-api-ingress-ip`, `api.k8s.onsell.ai` A record, DNS-authorized cert map `onsell-api-production`, Cloud Armor policy `onsell-api-armor` |
+| API edge | Dedicated `onsell-api-ingress-ip`, delegated `api.onsell.ai` zone, DNS-authorized cert map `onsell-api-production`, modern TLS policy, Cloud Armor policy `onsell-api-armor` |
 | CDN edge | Existing `onsell-ingress-ip` remains dedicated to media CDN :80/:443 |
 
 ## What it deliberately does *not* create
@@ -74,9 +81,9 @@ protected migrator Job, whose Cloud SQL Auth Proxy uses
   merchants.
 - **Managed Prometheus** — off. Unbounded ingestion is ~$104/mo at 10k series
   on a 15s scrape, more than the entire pod bill. Opt in deliberately.
-- **The Gateway / forwarding rule** — belongs with the k8s manifests. Budget
-  $18.25/mo per rule, ×2 if you want an HTTP→HTTPS redirect. There is no
-  Cloud Run domain-mapping escape hatch on Autopilot.
+- **The Gateway / HTTPS forwarding rule** — belongs with the k8s manifests.
+  Budget about $18.25/mo. The production contract is HTTPS-only, so it does
+  not create a second port-80 forwarding rule.
 - **Kubernetes workloads** — this is infrastructure only. Versioned,
   fail-closed manifests live in the private
   `Pilgrim-Xzed/onsell-gitops` repository; Terraform does not deploy them.
@@ -93,8 +100,8 @@ protected migrator Job, whose Cloud SQL Auth Proxy uses
 | Security Valkey, 2 × `STANDARD_SMALL` | ~208.05 |
 | Security Valkey AOF persistence | roughly 3–5 |
 | Autopilot pods (6 pods, §A of the study) | ~67 @10 users, ~84 @20 |
-| API Gateway :80/:443 forwarding rules | ~36.50 once the Gateway owns the IP |
-| Cloud Armor Standard | ~11 for one policy + six rules, plus $0.75/million requests |
+| API Gateway :443 forwarding rule | ~18.25 once the Gateway owns the IP |
+| Cloud Armor Standard | ~12 for one policy + seven rules, plus $0.75/million requests |
 | GKE management fee | $73, offset by the $74.40 free-tier credit |
 | **Core subtotal, Matrix off** | **~$446–466/mo before NAT, CDN edge, logs and traffic** |
 | **Core subtotal, Matrix on** | **~$544–564/mo before NAT, CDN edge, logs and traffic** |
@@ -123,12 +130,15 @@ ACCOUNT, not per cluster** — a staging cluster pays the full $73.
    permits the operator's explicit `/32`; the example remains deny-all. Update
    the value when the office/VPN egress changes and never use `0.0.0.0/0`.
 5. **The API hostname is Terraform-owned.** ExternalDNS watches Service and
-   Ingress, not Gateway/HTTPRoute, so it must not also claim
-   `api.k8s.onsell.ai`.
+   Ingress, not Gateway/HTTPRoute. Delegate `api.onsell.ai` once using the
+   `api_dns_delegation_ns` output; Terraform then owns its A and certificate
+   authorization records without access to the Cloudflare apex.
 6. **Attach `onsell-api-armor` before public traffic.** Its SQLi, XSS, LFI,
-   RCE and scanner signatures intentionally start in preview. Review Cloud
-   Armor match telemetry against payment/provider webhooks, tune exclusions,
-   then promote rules individually; do not bulk-disable preview.
+   RCE and scanner signatures intentionally start in preview. The Matrix
+   application-service callback is denied at the public edge and remains
+   reachable only over its ClusterIP. Review Cloud Armor match telemetry
+   against payment/provider webhooks, tune exclusions, then promote WAF rules
+   individually; do not bulk-disable preview.
 7. **External Secrets uses its own identity.** Annotate
    `external-secrets/external-secrets` with the
    `external_secrets_service_account` output. It receives accessor bindings on

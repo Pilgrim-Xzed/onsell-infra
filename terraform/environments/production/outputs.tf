@@ -109,8 +109,8 @@ output "estimated_monthly_cost" {
     cloud_sql_matrix   = var.enable_matrix_cloudsql ? "~$98/mo (REGIONAL, same base tier as app)" : "$0 (disabled)"
     valkey_cache       = "~$25.55/mo (${var.valkey_node_type}, ${var.valkey_replica_count} replicas)"
     valkey_security    = "~$208.05/mo for 2 STANDARD_SMALL nodes + roughly $3-5/mo AOF persistence"
-    api_gateway_edge   = "~$36.50/mo for the :80/:443 forwarding rules created by GKE Gateway; reserved IP is free while attached"
-    cloud_armor        = "~$11/mo for 1 policy + 6 rules, plus $0.75/million requests (Standard)"
+    api_gateway_edge   = "~$18.25/mo for the HTTPS :443 forwarding rule created by GKE Gateway; reserved IP is free while attached"
+    cloud_armor        = "~$12/mo for 1 policy + 7 rules, plus $0.75/million requests (Standard)"
     gke_mgmt_fee       = "$73/mo, offset by the $74.40 free-tier credit for ONE zonal/Autopilot cluster per BILLING ACCOUNT"
     important_excludes = "Autopilot pods (~$67-84), Cloud NAT, logs, DNS queries, inter-zone/egress traffic, and the separate CDN forwarding rules."
   }

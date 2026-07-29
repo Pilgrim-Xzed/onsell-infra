@@ -9,6 +9,21 @@ resource "google_compute_security_policy" "api" {
   description = "Onsell API edge WAF; preview rules require tuning before enforcement"
   type        = "CLOUD_ARMOR"
 
+  # Synapse calls this application-service endpoint through the private
+  # ClusterIP. It is never a public client surface, even though the external
+  # HTTPRoute intentionally sends every other API path to the same Service.
+  rule {
+    action      = "deny(404)"
+    priority    = 100
+    description = "Keep the internal Matrix application-service callback private"
+
+    match {
+      expr {
+        expression = "request.path.startsWith('/api/matrix/appservice')"
+      }
+    }
+  }
+
   rule {
     action      = "deny(403)"
     priority    = 1000
