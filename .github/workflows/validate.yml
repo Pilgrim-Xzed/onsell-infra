@@ -1,0 +1,37 @@
+name: terraform-validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.3"
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Repository safety
+        run: ./scripts/verify-repository-safety.sh
+      - name: ShellCheck
+        run: shellcheck scripts/bootstrap-state.sh scripts/verify-repository-safety.sh
+      - run: terraform fmt -check -recursive
+        working-directory: terraform/environments/production
+      - run: terraform init -backend=false -lockfile=readonly
+        working-directory: terraform/environments/production
+      - run: terraform validate -no-color
+        working-directory: terraform/environments/production

@@ -1,0 +1,58 @@
+name: production-terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the reviewed plan in the same protected job
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-terraform
+  cancel-in-progress: false
+
+jobs:
+  plan-or-apply:
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_VAR_authorized_networks: ${{ vars.TF_VAR_AUTHORIZED_NETWORKS }}
+      TF_VAR_cdn_fill_grant: ${{ vars.TF_VAR_CDN_FILL_GRANT }}
+    steps:
+      - name: Require protected production configuration
+        env:
+          PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.GCP_TERRAFORM_SERVICE_ACCOUNT }}
+          AUTHORIZED_NETWORKS: ${{ vars.TF_VAR_AUTHORIZED_NETWORKS }}
+          CDN_FILL_GRANT: ${{ vars.TF_VAR_CDN_FILL_GRANT }}
+        run: |
+          for required in PROVIDER SERVICE_ACCOUNT AUTHORIZED_NETWORKS CDN_FILL_GRANT; do
+            test -n "${!required}" || {
+              echo "Missing production variable: ${required}" >&2
+              exit 1
+            }
+          done
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.3"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_TERRAFORM_SERVICE_ACCOUNT }}
+      - run: terraform init -reconfigure -lockfile=readonly
+        working-directory: terraform/environments/production
+      - name: Create an ephemeral reviewed plan
+        run: terraform plan -no-color -out="${RUNNER_TEMP}/production.tfplan"
+        working-directory: terraform/environments/production
+      - name: Apply the exact in-job plan
+        if: ${{ inputs.apply }}
+        run: terraform apply -no-color -auto-approve "${RUNNER_TEMP}/production.tfplan"
+        working-directory: terraform/environments/production

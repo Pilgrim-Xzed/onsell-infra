@@ -1,0 +1,23 @@
+# Copy to terraform.tfvars and replace placeholders locally. Never commit the
+# resulting file or any saved Terraform plan/state output.
+
+project_id         = "replace-with-production-project-id"
+billing_account_id = "replace-with-billing-account-id"
+region             = "africa-south1"
+zone               = "africa-south1-a"
+
+# Prefer a controlled VPN or Connect Gateway path. If direct control-plane
+# access is temporarily required, use a fixed /32 egress address.
+authorized_networks = []
+
+# Leave empty until DNS, certificate ownership, URL signing, and a known-object
+# 200-response monitor have been validated end to end.
+cdn_domain         = ""
+cdn_http_redirect  = true
+media_bucket_public = false
+cdn_fill_grant      = false
+
+# Production data stores.
+app_db_ha                  = true
+app_db_deletion_protection = true
+valkey_replica_count       = 1
