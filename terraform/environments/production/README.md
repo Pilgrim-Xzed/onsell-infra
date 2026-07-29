@@ -10,11 +10,16 @@ onboarding an outage).
 
 Billing is linked and the foundation is live in `chrome-oven-503818-h4`.
 Cloud SQL, GKE, networking, buckets, DNS, and the low-cost disposable cache
-already exist. Do not run an unreviewed full apply: the remaining plan includes
-the replicated durable Valkey and public API edge, which add material recurring
-cost. The reconciled Matrix-off plan is `16 add, 0 change, 0 destroy`: ten API
-edge resources plus the separately gated durable-Valkey resources. Matrix
-remains conditional and disabled.
+already exist. The API address, delegated DNS zone and records, DNS
+authorization, certificate/map, and modern TLS policy are also live. Cloud
+Armor remains blocked because the project has a zero quota for policies and
+rules; all three minimal quota-preference requests were rejected automatically
+and require console/support escalation.
+
+Do not run an unreviewed full apply. The remaining Matrix-off plan is
+`7 add, 0 change, 0 destroy`: the blocked Cloud Armor policy plus six
+separately gated durable-Valkey resources. Matrix remains conditional and
+disabled.
 
 ## Watch the active project
 
@@ -35,6 +40,12 @@ value returned by `terraform output -json api_dns_delegation_ns` as an `NS`
 record named `api`. Do not add a Cloudflare A, AAAA, or certificate-validation
 record for that hostname: Cloud DNS owns the apex A and Certificate Manager
 CNAME inside the delegated zone.
+
+The Gateway must not be promoted until the following global Compute Engine
+quotas are non-zero: `SECURITY-POLICIES-per-project`,
+`SECURITY-POLICY-RULES-per-project`, and
+`SECURITY-POLICY-CEVAL-RULES-per-project`. The requested values are 1, 10, and
+10 respectively.
 
 Do not rerun `../../../scripts/bootstrap-state.sh` for the existing production
 project. It exists only to create a state bucket for a first installation.

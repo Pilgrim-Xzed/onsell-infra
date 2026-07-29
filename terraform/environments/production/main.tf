@@ -29,6 +29,7 @@ resource "google_project_service" "apis" {
     "monitoring.googleapis.com",
     "logging.googleapis.com",
     "billingbudgets.googleapis.com",
+    "cloudquotas.googleapis.com",
     "dns.googleapis.com",
     "certificatemanager.googleapis.com",
   ])

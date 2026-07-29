@@ -30,6 +30,8 @@ data plane are supplied.
 | Database schema | All 40 migrations applied to the pristine live database; API and worker automatic-IAM login and DML-only privileges verified end to end |
 | Secret access | No application identity has project-wide Secret Manager access; External Secrets has exact secret-level grants |
 | Media access | API object administration is scoped to the media bucket; public access prevention and uniform bucket-level access are enabled |
+| API edge foundation | Reserved IP `34.160.98.43`, delegated `api.onsell.ai` Cloud DNS zone and records, DNS-authorized Certificate Manager map, and modern TLS policy are provisioned |
+| API edge protection | Cloud Armor is fail-closed: the project currently grants zero policies/rules and rejected the minimal quota preferences; the Gateway is not promoted |
 | Secret payload boundary | Separate API, worker, migration-database, and CDN-signing versions exist; obsolete password-bearing API URL versions were destroyed; provider, Matrix, and durable-Valkey values remain deliberately unpopulated |
 | Cluster workloads | Only GKE system workloads, Argo CD, and ExternalDNS are installed; there are no Onsell Argo Applications or product workloads |
 
@@ -120,6 +122,13 @@ object were deleted immediately afterward.
    inputs.
 7. **Supply desktop signing identities.** macOS Developer ID/notarization and
    Windows signing credentials are required before an installer release.
+8. **Raise the three Cloud Armor quotas from zero.** Requests for one global
+   policy, ten total rules, and ten advanced rules were submitted as
+   `onsell-cloud-armor-policies`, `onsell-cloud-armor-rules`, and
+   `onsell-cloud-armor-ceval-rules`; Google automatically kept all three at
+   zero. Escalate them through Quotas & System Limits or Cloud Customer Care,
+   then apply `google_compute_security_policy.api` before promoting the
+   Gateway.
 
 ### Explicit cost approval
 
@@ -175,10 +184,9 @@ unless Onsell maintains a fork.
 ## Validation evidence
 
 - Terraform formatting and provider-backed validation pass.
-- The current Matrix-off Terraform plan is `16 add, 0 change, 0 destroy`: ten
-  API-edge resources plus six separately gated durable-Valkey resources. The
-  optional Matrix-on plan remains a separate review. Cost-bearing resources
-  remain unapplied unless explicitly selected.
+- The post-edge Matrix-off Terraform plan is `7 add, 0 change, 0 destroy`: the
+  quota-blocked Cloud Armor policy plus six separately gated durable-Valkey
+  resources. The optional Matrix-on plan remains a separate review.
 - A clean PostgreSQL 16 database runs all 40 migrations and an idempotent
   second pass.
 - Backend lint and the route-permission manifest pass.
